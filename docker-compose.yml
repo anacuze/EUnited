@@ -1,0 +1,16 @@
+# PostgreSQL for local development. Start it with:  docker compose up -d
+# The project connects to it by default (see DATABASES in eunited/settings.py).
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: eunited
+      POSTGRES_USER: eunited
+      POSTGRES_PASSWORD: eunited
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -33,11 +33,15 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
 - **Importer**: automatic import from sum.ba, unical.it and eupeace.eu into the review queue. The `Source` table is ready.
 - **Translate to English** button: needs a translation API key.
 - **Discuss** button: becomes a link once Euro-Chat exists.
-- Switch from SQLite to PostgreSQL and deploy. Hosting is decided later.
+- Deploy. Hosting is decided later.
 
 ## Run it on your computer
 
-You need Python 3.11 or newer.
+You need Python 3.11 or newer and PostgreSQL.
+
+**1. Start PostgreSQL.** With Docker, run `docker compose up -d` in the project folder: it starts a database with the settings the project expects, and the data stays in a Docker volume. Without Docker, install PostgreSQL (on a Mac, for example [Postgres.app](https://postgresapp.com)), create the database with `createdb eunited` and run `export DATABASE_URL=postgres://localhost/eunited` in the terminal you use for the project.
+
+**2. Install and start the project.**
 
 ```bash
 cd EUnited
@@ -86,6 +90,7 @@ pulse/        the Pulse: posts, tags, sources, likes, bell/follows, notification
   management/commands/   seed_demo, send_reminders
 templates/    base layout
 static/css/   eunited.css (mobile-first styles, no framework)
+docker-compose.yml   PostgreSQL for local development
 ```
 
 ## Rules the code enforces
@@ -103,6 +108,7 @@ static/css/   eunited.css (mobile-first styles, no framework)
 | `DJANGO_SECRET_KEY` | A long random string. Required. Once it is set, debug is off. |
 | `DJANGO_DEBUG` | Leave it unset on the server. `1` turns debug on, for development only. |
 | `DJANGO_ALLOWED_HOSTS` | For example `eunited.sum.ba` |
+| `DATABASE_URL` | The PostgreSQL database, for example `postgres://user:password@host:5432/eunited` |
 | `DJANGO_SITE_URL` | The site's public address, for example `https://eunited.sum.ba`. Used for the links in reminder emails. |
 | `DJANGO_EMAIL_BACKEND` | `django.core.mail.backends.smtp.EmailBackend`, plus the SMTP settings |
 

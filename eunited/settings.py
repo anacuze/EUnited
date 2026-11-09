@@ -1,12 +1,13 @@
 """
 Django settings for the EUnited project.
 
-Development defaults: SQLite database and emails printed to the console.
-For production, set the environment variables listed in README.md.
+Development defaults: a local PostgreSQL database (see docker-compose.yml) and emails
+printed to the console. For production, set the environment variables listed in README.md.
 """
 import os
 from pathlib import Path
 
+import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -63,12 +64,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "eunited.wsgi.application"
 
-# SQLite for development. Switch to PostgreSQL before launch (see README).
+# PostgreSQL in development too, so nothing behaves differently once the site is live.
+# Without DATABASE_URL it connects to the local database from docker-compose.yml.
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default="postgres://eunited:eunited@localhost:5432/eunited",
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 AUTH_USER_MODEL = "accounts.User"
