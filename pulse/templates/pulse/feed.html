@@ -1,64 +1,85 @@
 {% extends "base.html" %}
 {% block title %}{{ title }} · EUnited{% endblock %}
+{% block main_class %}container-wide{% endblock %}
 {% block content %}
+<div class="pulse-layout{% if closing_soon %} has-soon{% endif %}">
 
-<div class="page-head">
-  <h1>{{ title }}</h1>
-  <div class="tabs">
-    <a href="{% url 'pulse:feed' %}" class="{% if not is_archive %}is-active{% endif %}">Live</a>
-    <a href="{% url 'pulse:archive' %}" class="{% if is_archive %}is-active{% endif %}">Archive</a>
-  </div>
+  <header class="page-head">
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="page-intro">{% if is_archive %}Posts whose deadline or event date has passed.{% else %}Mobility calls, events and news from SUM, UNICAL and EUPeace.{% endif %}</p>
+    <nav class="tabs" aria-label="Live or archive">
+      <a href="{% url 'pulse:feed' %}"{% if not is_archive %} class="is-active" aria-current="page"{% endif %}>Live</a>
+      <a href="{% url 'pulse:archive' %}"{% if is_archive %} class="is-active" aria-current="page"{% endif %}>Archive</a>
+    </nav>
+  </header>
+
+  {% if closing_soon %}
+  <section class="closing-soon" aria-labelledby="closing-soon-title">
+    <h2 id="closing-soon-title">Closing in the next 7 days</h2>
+    <div class="tickets">
+      {% for post in closing_soon %}
+        <a class="ticket type-{{ post.type }}" href="{{ post.get_absolute_url }}">
+          <span class="ticket-stub">
+            <span class="ticket-day">{{ post.key_date|date:"j" }}</span>
+            <span class="ticket-month">{{ post.key_date|date:"D" }}<br>{{ post.key_date|date:"M" }}</span>
+          </span>
+          <span class="ticket-body">
+            <span class="ticket-when{% if post.days_left <= 1 %} is-urgent{% endif %}">{% if post.deadline %}Deadline{% else %}Starts{% endif %} {% if post.days_left == 0 %}today{% elif post.days_left == 1 %}tomorrow{% else %}in {{ post.days_left }} days{% endif %}</span>
+            <span class="ticket-title">{{ post.title }}</span>
+            <span class="ticket-meta"><span class="type-dot" aria-hidden="true"></span>{{ post.get_type_display }}<span class="uni">{{ post.university.short_name }}</span></span>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <form class="filters" method="get" role="search">
+    <label class="search">
+      <span class="visually-hidden">Search posts</span>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="search" name="q" value="{{ active.q }}" placeholder="Search posts">
+    </label>
+    <div class="filter-row">
+      <select name="university" aria-label="University">
+        <option value="">University</option>
+        {% for uni in universities %}<option value="{{ uni.short_name }}" {% if active.university|upper == uni.short_name|upper %}selected{% endif %}>{{ uni.short_name }}</option>{% endfor %}
+      </select>
+      <select name="type" aria-label="Type">
+        <option value="">Type</option>
+        {% for value, label in types %}<option value="{{ value }}" {% if active.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="tag" aria-label="Tag">
+        <option value="">Tag</option>
+        {% for tag in tags %}<option value="{{ tag.slug }}" {% if active.tag == tag.slug %}selected{% endif %}>#{{ tag.name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn filter-submit">Filter</button>
+    </div>
+    {% if has_filters %}<a class="clear" href="{{ request.path }}">Clear filters</a>{% endif %}
+  </form>
+
+  <section class="feed" aria-label="Posts">
+    {% for post in page %}
+      {% include "pulse/_card.html" %}
+    {% empty %}
+      <p class="empty">{% if has_filters %}No posts match these filters. <a href="{{ request.path }}">Clear filters</a>{% elif is_archive %}Nothing in the archive yet.{% else %}No posts yet. Check back soon!{% endif %}</p>
+    {% endfor %}
+  </section>
+
+  {% if page.has_other_pages %}
+  <nav class="pager" aria-label="Pages">
+    {% if page.has_previous %}<a class="btn btn-ghost" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.previous_page_number }}">Newer posts</a>{% else %}<span></span>{% endif %}
+    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-ghost" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.next_page_number }}">Older posts</a>{% else %}<span></span>{% endif %}
+  </nav>
+  {% endif %}
+
 </div>
 
-<form class="filters" method="get">
-  <input type="search" name="q" value="{{ active.q }}" placeholder="Search posts…" aria-label="Search">
-  <select name="university" aria-label="University">
-    <option value="">All universities</option>
-    {% for uni in universities %}<option value="{{ uni.short_name }}" {% if active.university|upper == uni.short_name|upper %}selected{% endif %}>{{ uni.short_name }}</option>{% endfor %}
-  </select>
-  <select name="type" aria-label="Type">
-    <option value="">All types</option>
-    {% for value, label in types %}<option value="{{ value }}" {% if active.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-  </select>
-  <select name="tag" aria-label="Tag">
-    <option value="">All tags</option>
-    {% for tag in tags %}<option value="{{ tag.slug }}" {% if active.tag == tag.slug %}selected{% endif %}>#{{ tag.name }}</option>{% endfor %}
-  </select>
-  <button type="submit" class="btn">Filter</button>
-  {% if has_filters %}<a class="clear" href="{{ request.path }}">Clear</a>{% endif %}
-</form>
-
-{% if closing_soon %}
-<section class="closing-soon" aria-label="Closing soon">
-  <h2>Closing soon</h2>
-  <div class="strip">
-    {% for post in closing_soon %}
-      <a class="strip-item type-{{ post.type }}" href="{{ post.get_absolute_url }}">
-        <span class="strip-when">
-          {% if post.days_left == 0 %}Today{% elif post.days_left == 1 %}Tomorrow{% else %}In {{ post.days_left }} days{% endif %}
-        </span>
-        <span class="strip-title">{{ post.title }}</span>
-        <span class="strip-meta">{{ post.get_type_display }} · {{ post.university.short_name }}</span>
-      </a>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
-
-<section class="feed">
-  {% for post in page %}
-    {% include "pulse/_card.html" %}
-  {% empty %}
-    <p class="empty">{% if has_filters %}No posts match these filters.{% elif is_archive %}Nothing in the archive yet.{% else %}No posts yet. Check back soon!{% endif %}</p>
-  {% endfor %}
-</section>
-
-{% if page.has_other_pages %}
-<nav class="pager">
-  {% if page.has_previous %}<a class="btn btn-ghost" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.previous_page_number }}">← Newer</a>{% endif %}
-  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
-  {% if page.has_next %}<a class="btn btn-ghost" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.next_page_number }}">Older →</a>{% endif %}
-</nav>
-{% endif %}
-
+<script>
+  // Apply a filter as soon as it is picked. Without JavaScript the Filter button does it.
+  document.querySelectorAll(".filters select").forEach(function (select) {
+    select.addEventListener("change", function () { select.form.submit(); });
+  });
+</script>
 {% endblock %}

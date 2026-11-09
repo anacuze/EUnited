@@ -39,6 +39,7 @@ class ClubPostForm(forms.ModelForm):
         self.fields["club"].queryset = user.clubs.filter(verified=True) if user else self.fields["club"].queryset.none()
         self.fields["club"].required = True
         self.fields["club"].empty_label = None
+        self.fields["type"].choices = [("", "Choose a type")] + list(Post.Type.choices)
         for name in ("deadline", "event_start", "event_end"):
             self.fields[name].input_formats = ["%Y-%m-%dT%H:%M"]
 

@@ -232,9 +232,10 @@ class Post(models.Model):
 
     @property
     def days_left(self):
+        """Calendar days until the key date, in local time: 0 = today, 1 = tomorrow."""
         if not self.key_date:
             return None
-        return (self.key_date - timezone.now()).days
+        return (timezone.localtime(self.key_date).date() - timezone.localdate()).days
 
     def publish(self, by_user):
         self.status = self.Status.PUBLISHED

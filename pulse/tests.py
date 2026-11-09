@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.core import mail
 from django.core.exceptions import ValidationError
@@ -49,6 +49,14 @@ class FeedTests(PulseTestCase):
         self.make_post(title="Newer", published_at=now)
         response = self.client.get(reverse("pulse:feed"))
         self.assertEqual([p.title for p in response.context["page"]], ["Newer", "Older"])
+
+    def test_days_left_counts_calendar_days(self):
+        today = timezone.localdate()
+        at = lambda days, hour, minute: timezone.make_aware(  # noqa: E731
+            datetime.combine(today + timedelta(days=days), time(hour, minute)))
+        self.assertEqual(self.make_post(type=Post.Type.MOBILITY, deadline=at(1, 23, 0)).days_left, 1)
+        # less than 48 hours away, but two dates ahead on the calendar
+        self.assertEqual(self.make_post(type=Post.Type.MOBILITY, deadline=at(2, 0, 30)).days_left, 2)
 
     def test_expired_posts_go_to_archive(self):
         self.make_post(title="Old mobility", type=Post.Type.MOBILITY, deadline=timezone.now() - timedelta(days=1))

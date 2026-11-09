@@ -1,28 +1,33 @@
 {% extends "base.html" %}
 {% block title %}{{ post.title }} · EUnited{% endblock %}
 {% block content %}
-<p><a class="back" href="{% url 'pulse:feed' %}">← Back to Pulse</a></p>
+<div class="post-detail">
+  <a class="back" href="{% url 'pulse:feed' %}">
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Back to Pulse
+  </a>
 
-{% if post.status != "published" and post.status != "archived" %}
-  <div class="message message-warning">
-    Status: <strong>{{ post.get_status_display }}</strong>{% if post.rejection_reason %} – {{ post.rejection_reason }}{% endif %}.
-    Only you and the admins can see this post.
+  {% if post.status != "published" and post.status != "archived" %}
+    <div class="message message-warning">
+      Status: <strong>{{ post.get_status_display }}</strong>{% if post.rejection_reason %} – {{ post.rejection_reason }}{% endif %}.
+      Only you and the admins can see this post.
+    </div>
+  {% elif post.is_expired %}
+    <div class="message message-info">This post is in the archive – its date has passed.</div>
+  {% endif %}
+
+  {% include "pulse/_card.html" with detail=True %}
+
+  {% if post.image_url %}<img class="post-image" src="{{ post.image_url }}" alt="">{% endif %}
+
+  {% if post.body %}
+    <div class="post-body">{{ post.body|linebreaks }}</div>
+  {% endif %}
+
+  <div class="post-footer">
+    {% if post.source_url %}<a class="btn" href="{{ post.source_url }}" target="_blank" rel="noopener">Open original page</a>{% endif %}
+    {% if post.language != "en" %}<span class="btn btn-ghost is-disabled" title="Automatic translation is coming soon">Translate to English (soon)</span>{% endif %}
+    {% if post.club %}<p class="muted">Posted by {{ post.club.name }}</p>{% elif post.source %}<p class="muted">Imported from {{ post.source.name }}</p>{% endif %}
   </div>
-{% elif post.is_expired %}
-  <div class="message message-info">This post is in the archive – its date has passed.</div>
-{% endif %}
-
-{% include "pulse/_card.html" %}
-
-{% if post.image_url %}<img class="post-image" src="{{ post.image_url }}" alt="">{% endif %}
-
-{% if post.body %}
-  <div class="post-body">{{ post.body|linebreaks }}</div>
-{% endif %}
-
-<div class="post-footer">
-  {% if post.source_url %}<a class="btn" href="{{ post.source_url }}" target="_blank" rel="noopener">Open original page</a>{% endif %}
-  {% if post.language != "en" %}<span class="btn btn-ghost is-disabled" title="Automatic translation is coming soon">Translate to English (soon)</span>{% endif %}
-  {% if post.club %}<p class="muted">Posted by {{ post.club.name }}</p>{% elif post.source %}<p class="muted">Imported from {{ post.source.name }}</p>{% endif %}
 </div>
 {% endblock %}
