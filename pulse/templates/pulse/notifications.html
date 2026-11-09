@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Reminders · EUnited{% endblock %}
+{% block content %}
+<h1>Reminders</h1>
+
+<section>
+  <h2 class="section-title">Notifications</h2>
+  {% for n in items %}
+    <a class="notice{% if not n.read_at %} is-new{% endif %}" href="{{ n.post.get_absolute_url }}">
+      <span>{{ n.message }}</span>
+      <time>{{ n.send_at|date:"j M, H:i" }}</time>
+    </a>
+  {% empty %}
+    <p class="empty">No reminders yet. Tap <strong>Remind me</strong> on a post and we'll notify you 3 days and 1 day before its deadline.</p>
+  {% endfor %}
+</section>
+
+<section>
+  <h2 class="section-title">Posts you follow</h2>
+  {% for f in following %}
+    <a class="notice" href="{{ f.post.get_absolute_url }}">
+      <span>{{ f.post.title }}</span>
+      <time>{% if f.post.key_date %}{{ f.post.key_date|date:"j M Y" }}{% endif %}</time>
+    </a>
+  {% empty %}
+    <p class="empty">You're not following any posts.</p>
+  {% endfor %}
+</section>
+{% endblock %}

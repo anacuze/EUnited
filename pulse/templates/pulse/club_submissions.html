@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Submit a post · EUnited{% endblock %}
+{% block content %}
+<h1>Submit a post</h1>
+<p class="muted">Every post is checked by an admin before it appears in the Pulse.</p>
+
+<form method="post" class="form-card">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for field in form %}
+    <div class="field{% if field.errors %} has-error{% endif %}">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+      {% for e in field.errors %}<small class="error">{{ e }}</small>{% endfor %}
+    </div>
+  {% endfor %}
+  <button type="submit" class="btn">Send for approval</button>
+</form>
+
+<h2 class="section-title">Your submissions</h2>
+{% for post in posts %}
+  <a class="notice" href="{{ post.get_absolute_url }}">
+    <span>{{ post.title }}{% if post.rejection_reason %}<br><small class="error">{{ post.rejection_reason }}</small>{% endif %}</span>
+    <span class="status status-{{ post.status }}">{{ post.get_status_display }}</span>
+  </a>
+{% empty %}
+  <p class="empty">Nothing submitted yet.</p>
+{% endfor %}
+{% endblock %}

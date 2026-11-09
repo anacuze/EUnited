@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · EUnited{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ title }}</h1>
+  <div class="tabs">
+    <a href="{% url 'pulse:feed' %}" class="{% if not is_archive %}is-active{% endif %}">Live</a>
+    <a href="{% url 'pulse:archive' %}" class="{% if is_archive %}is-active{% endif %}">Archive</a>
+  </div>
+</div>
+
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ active.q }}" placeholder="Search posts…" aria-label="Search">
+  <select name="university" aria-label="University">
+    <option value="">All universities</option>
+    {% for uni in universities %}<option value="{{ uni.short_name }}" {% if active.university|upper == uni.short_name|upper %}selected{% endif %}>{{ uni.short_name }}</option>{% endfor %}
+  </select>
+  <select name="type" aria-label="Type">
+    <option value="">All types</option>
+    {% for value, label in types %}<option value="{{ value }}" {% if active.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="tag" aria-label="Tag">
+    <option value="">All tags</option>
+    {% for tag in tags %}<option value="{{ tag.slug }}" {% if active.tag == tag.slug %}selected{% endif %}>#{{ tag.name }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn">Filter</button>
+  {% if has_filters %}<a class="clear" href="{{ request.path }}">Clear</a>{% endif %}
+</form>
+
+{% if closing_soon %}
+<section class="closing-soon" aria-label="Closing soon">
+  <h2>Closing soon</h2>
+  <div class="strip">
+    {% for post in closing_soon %}
+      <a class="strip-item type-{{ post.type }}" href="{{ post.get_absolute_url }}">
+        <span class="strip-when">
+          {% if post.days_left == 0 %}Today{% elif post.days_left == 1 %}Tomorrow{% else %}In {{ post.days_left }} days{% endif %}
+        </span>
+        <span class="strip-title">{{ post.title }}</span>
+        <span class="strip-meta">{{ post.get_type_display }} · {{ post.university.short_name }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="feed">
+  {% for post in page %}
+    {% include "pulse/_card.html" %}
+  {% empty %}
+    <p class="empty">{% if has_filters %}No posts match these filters.{% elif is_archive %}Nothing in the archive yet.{% else %}No posts yet. Check back soon!{% endif %}</p>
+  {% endfor %}
+</section>
+
+{% if page.has_other_pages %}
+<nav class="pager">
+  {% if page.has_previous %}<a class="btn btn-ghost" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.previous_page_number }}">← Newer</a>{% endif %}
+  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn btn-ghost" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.next_page_number }}">Older →</a>{% endif %}
+</nav>
+{% endif %}
+
+{% endblock %}

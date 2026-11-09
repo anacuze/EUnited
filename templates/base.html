@@ -1,0 +1,52 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}EUnited Pulse{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/eunited.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="{% url 'pulse:feed' %}">
+        <span class="brand-mark" aria-hidden="true">EU</span>
+        <span class="brand-text">EUnited <em>Pulse</em></span>
+      </a>
+      <nav class="topnav">
+        {% if user.is_authenticated %}
+          <a class="bell-link" href="{% url 'pulse:notifications' %}" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z" fill="currentColor"/></svg>
+            {% if unread_notifications %}<span class="badge">{{ unread_notifications }}</span>{% endif %}
+          </a>
+          <details class="menu">
+            <summary>{{ user.display_name }}</summary>
+            <div class="menu-list">
+              <a href="{% url 'pulse:notifications' %}">My bells &amp; reminders</a>
+              {% if user.clubs.exists %}<a href="{% url 'pulse:club_submissions' %}">Submit a post</a>{% endif %}
+              {% if user.is_staff %}<a href="{% url 'admin:index' %}">Admin panel</a>{% endif %}
+              <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
+            </div>
+          </details>
+        {% else %}
+          <a href="{% url 'accounts:login' %}">Log in</a>
+          <a class="btn btn-small" href="{% url 'accounts:signup' %}">Sign up</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}<div class="message message-{{ message.tags }}">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    EUnited · EUPeace Student Challenge · University of Mostar &amp; University of Calabria
+  </footer>
+</body>
+</html>

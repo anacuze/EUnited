@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign up · EUnited{% endblock %}
+{% block content %}
+<div class="auth">
+  <h1>Join EUnited</h1>
+  <p class="muted">You need a university email to like posts, ring the bell for reminders and join discussions. Reading the Pulse is open to everyone.</p>
+  <form method="post" class="form-card">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="field{% if field.errors %} has-error{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {% for e in field.errors %}<small class="error">{{ e }}</small>{% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-block">Create account</button>
+  </form>
+  <p class="muted">Already have an account? <a href="{% url 'accounts:login' %}">Log in</a></p>
+</div>
+{% endblock %}
