@@ -37,16 +37,15 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
 
 ## Run it on your computer
 
-You need Python 3.11 or newer and PostgreSQL.
+**First time? Follow [SETUP.md](SETUP.md)**: a step-by-step guide for Mac, Windows and Linux, with the test accounts and fixes for common problems.
 
-**1. Start PostgreSQL.** With Docker, run `docker compose up -d` in the project folder: it starts a database with the settings the project expects, and the data stays in a Docker volume. Without Docker, install PostgreSQL (on a Mac, for example [Postgres.app](https://postgresapp.com)), create the database with `createdb eunited` and run `export DATABASE_URL=postgres://localhost/eunited` in the terminal you use for the project.
-
-**2. Install and start the project.**
+In short, you need Docker Desktop and Python 3.11 or newer:
 
 ```bash
 cd EUnited
+docker compose up -d             # PostgreSQL in Docker
 python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
 python manage.py migrate
@@ -55,6 +54,8 @@ python manage.py runserver
 ```
 
 Open http://127.0.0.1:8000. The admin panel is at http://127.0.0.1:8000/admin/.
+
+Without Docker, install PostgreSQL yourself (on a Mac, for example [Postgres.app](https://postgresapp.com)), create the database with `createdb eunited` and run `export DATABASE_URL=postgres://localhost/eunited` in the terminal you use for the project.
 
 `seed_demo` creates these test users. The password for all of them is `eunited-dev-123`.
 
@@ -90,7 +91,9 @@ pulse/        the Pulse: posts, tags, sources, likes, bell/follows, notification
   management/commands/   seed_demo, send_reminders
 templates/    base layout
 static/css/   eunited.css (mobile-first styles, no framework)
+static/fonts/ Archivo font files, self-hosted (OFL licence)
 docker-compose.yml   PostgreSQL for local development
+SETUP.md      step-by-step guide to run the project
 ```
 
 ## Rules the code enforces
