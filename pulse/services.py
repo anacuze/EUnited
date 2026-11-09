@@ -72,12 +72,14 @@ def reschedule_for_post(post):
         schedule_reminders(f.user, post)
 
 
-def send_due_reminders(now=None, base_url="http://localhost:8000"):
+def send_due_reminders(now=None, base_url=None):
     """Send email reminders that are due and mark in-app ones as delivered.
 
     Meant to run every few minutes (cron or a scheduler). Returns the number of emails sent.
+    Links in the emails start with base_url, or with the SITE_URL setting if it isn't given.
     """
     now = now or timezone.now()
+    base_url = base_url or settings.SITE_URL
     due = (
         Notification.objects.filter(sent_at__isnull=True, send_at__lte=now)
         .select_related("user", "post")

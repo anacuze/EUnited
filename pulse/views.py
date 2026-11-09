@@ -37,8 +37,12 @@ def _apply_filters(request, queryset):
 
 
 def _with_counts(queryset):
-    return queryset.select_related("university", "club").prefetch_related("tags").annotate(
-        like_count=Count("likes", distinct=True)
+    # Django ignores Meta.ordering once a query is grouped for Count(), so order explicitly:
+    # newest posts first.
+    return (
+        queryset.select_related("university", "club").prefetch_related("tags")
+        .annotate(like_count=Count("likes", distinct=True))
+        .order_by(*Post._meta.ordering)
     )
 
 
@@ -155,7 +159,7 @@ def notifications(request):
 @login_required
 def club_submissions(request):
     """A club account's own submitted posts with their status, and the submit form."""
-    if not request.user.clubs.filter(verified=True).exists():
+    if not request.user.can_submit_posts:
         return HttpResponseForbidden("Only members of a verified student club can submit posts.")
     if request.method == "POST":
         form = ClubPostForm(request.POST, user=request.user)

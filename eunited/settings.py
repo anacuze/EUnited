@@ -7,12 +7,18 @@ For production, set the environment variables listed in README.md.
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY", "dev-only-insecure-key-change-me-before-deploying"
-)
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+# Production is recognised by DJANGO_SECRET_KEY being set. Without it the project runs in
+# development mode (debug on, insecure key). With it, debug is off unless DJANGO_DEBUG=1,
+# so forgetting DJANGO_DEBUG on the server can't leave debug pages switched on.
+_secret_key_from_env = os.environ.get("DJANGO_SECRET_KEY", "")
+SECRET_KEY = _secret_key_from_env or "dev-only-insecure-key-change-me-before-deploying"
+DEBUG = os.environ.get("DJANGO_DEBUG", "0" if _secret_key_from_env else "1") == "1"
+if not DEBUG and not _secret_key_from_env:
+    raise ImproperlyConfigured("DJANGO_DEBUG=0 needs DJANGO_SECRET_KEY to be set (see README).")
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 INSTALLED_APPS = [
@@ -94,6 +100,9 @@ EMAIL_BACKEND = os.environ.get(
     "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DJANGO_DEFAULT_FROM_EMAIL", "EUnited <no-reply@eunited.local>")
+
+# Public address of the site, used for links in emails sent outside a web request (reminders).
+SITE_URL = os.environ.get("DJANGO_SITE_URL", "http://localhost:8000")
 
 # --- EUnited settings ---------------------------------------------------------
 # How many days ahead the "Closing soon" strip looks.

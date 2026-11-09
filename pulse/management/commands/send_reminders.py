@@ -14,8 +14,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--base-url", default="http://localhost:8000",
-            help="Address of the site, used for links in emails.",
+            "--base-url", default=None,
+            help="Address of the site, used for links in emails. Default: the DJANGO_SITE_URL setting.",
         )
 
     def handle(self, *args, base_url, **options):

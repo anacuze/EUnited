@@ -94,15 +94,23 @@ class PostAdmin(PublishPermissionMixin, admin.ModelAdmin):
             if not obj.author_id:
                 obj.author = request.user
 
-        # Only users with the publish permission (superadmins) may publish.
-        if wants_publish and not was_published and not self.has_publish_permission(request):
+        can_publish = self.has_publish_permission(request)
+        # Users who can't publish (editors) may only leave a post as a draft or waiting for
+        # approval. Any change they make to a published, rejected or hidden post sends it
+        # back to the review queue, so nothing reaches the feed without a superadmin.
+        if (
+            not can_publish
+            and (not change or form.has_changed())
+            and obj.status not in (Post.Status.DRAFT, Post.Status.PENDING)
+        ):
             obj.status = Post.Status.PENDING
-            self.message_user(
-                request,
-                "Saved as 'Waiting for approval' – a superadmin has to publish it.",
-                messages.WARNING,
-            )
-        elif wants_publish and not was_published:
+            if was_published:
+                text = ("Changes saved. The post is waiting for approval again and is hidden "
+                        "from the Pulse until a superadmin publishes it.")
+            else:
+                text = "Saved as 'Waiting for approval' – a superadmin has to publish it."
+            self.message_user(request, text, messages.WARNING)
+        elif can_publish and wants_publish and not was_published:
             obj.approved_by = request.user
             obj.published_at = obj.published_at or timezone.now()
 

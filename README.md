@@ -21,7 +21,7 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
     | Role | Access |
     |---|---|
     | Superadmin | Everything |
-    | Editor | Writes and edits posts, but cannot publish |
+    | Editor | Writes and edits posts, but cannot publish. Editing a published post sends it back for approval |
     | Moderator | Can hide posts |
     | Student club | Submits posts |
     | Student | Reads, likes and sets reminders |
@@ -94,12 +94,16 @@ static/css/   eunited.css (mobile-first styles, no framework)
 - Only events and scientific events can have **event dates**, and an event must have a start date.
 - `source_url` is unique, so the importer can't create the same post twice.
 - Nothing appears in the feed unless its status is **Published**, and only superadmins can publish.
+- Users who can't publish can only save a post as a draft or waiting for approval. If an editor changes a published post, it leaves the feed until a superadmin approves it again.
 
 ## Settings for production
 
 | Variable | Meaning |
 |---|---|
-| `DJANGO_SECRET_KEY` | A long random string. Required. |
-| `DJANGO_DEBUG` | Set to `0` |
+| `DJANGO_SECRET_KEY` | A long random string. Required. Once it is set, debug is off. |
+| `DJANGO_DEBUG` | Leave it unset on the server. `1` turns debug on, for development only. |
 | `DJANGO_ALLOWED_HOSTS` | For example `eunited.sum.ba` |
+| `DJANGO_SITE_URL` | The site's public address, for example `https://eunited.sum.ba`. Used for the links in reminder emails. |
 | `DJANGO_EMAIL_BACKEND` | `django.core.mail.backends.smtp.EmailBackend`, plus the SMTP settings |
+
+Without `DJANGO_SECRET_KEY` the project runs in development mode. Before going live, run `python manage.py check --deploy`.

@@ -85,6 +85,11 @@ class User(AbstractUser):
     def is_club_account(self):
         return self.role == self.Role.CLUB
 
+    @property
+    def can_submit_posts(self):
+        """Members of a verified student club can submit posts for approval."""
+        return self.clubs.filter(verified=True).exists()
+
     def __str__(self):
         return self.email
 

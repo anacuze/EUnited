@@ -23,7 +23,7 @@
             <summary>{{ user.display_name }}</summary>
             <div class="menu-list">
               <a href="{% url 'pulse:notifications' %}">My bells &amp; reminders</a>
-              {% if user.clubs.exists %}<a href="{% url 'pulse:club_submissions' %}">Submit a post</a>{% endif %}
+              {% if user.can_submit_posts %}<a href="{% url 'pulse:club_submissions' %}">Submit a post</a>{% endif %}
               {% if user.is_staff %}<a href="{% url 'admin:index' %}">Admin panel</a>{% endif %}
               <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
             </div>

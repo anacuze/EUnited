@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.core import mail
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -42,6 +42,13 @@ class FeedTests(PulseTestCase):
         self.assertContains(response, live.title)
         self.assertNotContains(response, "Pending one")
         self.assertNotContains(response, "Old mobility")
+
+    def test_feed_newest_first(self):
+        now = timezone.now()
+        self.make_post(title="Older", published_at=now - timedelta(days=2))
+        self.make_post(title="Newer", published_at=now)
+        response = self.client.get(reverse("pulse:feed"))
+        self.assertEqual([p.title for p in response.context["page"]], ["Newer", "Older"])
 
     def test_expired_posts_go_to_archive(self):
         self.make_post(title="Old mobility", type=Post.Type.MOBILITY, deadline=timezone.now() - timedelta(days=1))
@@ -123,6 +130,13 @@ class LikeAndBellTests(PulseTestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("in 3 days", mail.outbox[0].subject)
 
+    @override_settings(SITE_URL="https://eunited.example.org")
+    def test_reminder_email_links_to_the_site(self):
+        post = self.make_post(type=Post.Type.MOBILITY, deadline=timezone.now() + timedelta(days=10))
+        services.follow(self.student, post)
+        services.send_due_reminders(now=post.deadline - timedelta(days=3) + timedelta(minutes=1))
+        self.assertIn("https://eunited.example.org" + post.get_absolute_url(), mail.outbox[0].body)
+
     def test_bell_count_in_header(self):
         post = self.make_post(type=Post.Type.MOBILITY, deadline=timezone.now() + timedelta(days=10))
         services.follow(self.student, post)
@@ -152,6 +166,16 @@ class ClubWorkflowTests(PulseTestCase):
         self.client.force_login(self.student)
         self.assertEqual(self.client.get(reverse("pulse:club_submissions")).status_code, 403)
 
+    def test_submit_link_only_for_verified_club_members(self):
+        self.client.force_login(self.club_user)
+        self.assertContains(self.client.get(reverse("pulse:feed")), "Submit a post")
+        unverified = Club.objects.create(name="New club", university=self.sum, verified=False)
+        member = User.objects.create_user("new@sum.ba", "pass12345!")
+        unverified.members.add(member)
+        self.client.force_login(member)
+        self.assertNotContains(self.client.get(reverse("pulse:feed")), "Submit a post")
+        self.assertEqual(self.client.get(reverse("pulse:club_submissions")).status_code, 403)
+
     def test_editor_cannot_publish_through_admin(self):
         editor = User.objects.create_user("ed@unical.it", "pass12345!", role=User.Role.EDITOR)
         self.assertTrue(editor.is_staff)
@@ -168,3 +192,45 @@ class ClubWorkflowTests(PulseTestCase):
         post.refresh_from_db()
         self.assertEqual(post.status, Post.Status.PUBLISHED)
         self.assertEqual(post.approved_by, self.admin)
+
+
+class EditorEditTests(PulseTestCase):
+    """Editors can't publish, so their changes to a published post send it back for approval."""
+
+    def setUp(self):
+        self.editor = User.objects.create_user("ed@unical.it", "pass12345!", role=User.Role.EDITOR)
+        self.post = self.make_post(title="Published news")
+
+    def save_as(self, user, **changes):
+        data = {
+            "type": self.post.type, "title": self.post.title, "summary": self.post.summary,
+            "body": "", "image_url": "", "language": "en", "university": self.sum.pk,
+            "club": "", "author": "", "source_url": "", "location": "",
+            "deadline_0": "", "deadline_1": "", "event_start_0": "", "event_start_1": "",
+            "event_end_0": "", "event_end_1": "",
+            "status": self.post.status, "rejection_reason": "", "_save": "Save",
+        }
+        data.update(changes)
+        self.client.force_login(user)
+        response = self.client.post(reverse("admin:pulse_post_change", args=[self.post.pk]), data)
+        if response.status_code != 302:
+            self.fail(response.context["adminform"].form.errors)
+        self.post.refresh_from_db()
+
+    def test_editor_change_sends_published_post_back_for_approval(self):
+        self.save_as(self.editor, title="Edited by editor")
+        self.assertEqual(self.post.status, Post.Status.PENDING)
+        feed = self.client.get(reverse("pulse:feed")).context["page"]
+        self.assertNotIn(self.post, list(feed))
+
+    def test_editor_saving_without_changes_keeps_post_published(self):
+        self.save_as(self.editor)
+        self.assertEqual(self.post.status, Post.Status.PUBLISHED)
+
+    def test_editor_cannot_hide_through_the_status_field(self):
+        self.save_as(self.editor, status=Post.Status.ARCHIVED)
+        self.assertEqual(self.post.status, Post.Status.PENDING)
+
+    def test_superadmin_change_keeps_post_published(self):
+        self.save_as(self.admin, title="Edited by admin")
+        self.assertEqual(self.post.status, Post.Status.PUBLISHED)
