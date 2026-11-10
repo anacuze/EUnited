@@ -2,7 +2,39 @@
 
 This guide gets the EUnited site running on your computer with sample posts and test accounts. The first time takes about 15 minutes; after that, starting it takes a few seconds.
 
-How it works: **Docker runs only the database** (PostgreSQL). The site itself runs with Python directly on your computer, so when you change the code the server reloads by itself and you see the change straight away.
+There are two ways to run it:
+
+- **Everything in Docker** (the quick way, right below): one command starts the database, the site and the importer. You only need Docker Desktop and Git.
+- **Python on your computer** (steps 1 to 7): Docker runs only the database and the site runs with your own Python. Use this if you want to run the tests or the `manage.py` commands directly.
+
+Both ways use the same database, so you can switch between them. Just don't run both at once: they both use port 8000.
+
+## The quick way: everything in Docker
+
+With Docker Desktop open, inside the `EUnited` folder:
+
+```bash
+docker compose up
+```
+
+The first time takes a few minutes, because Docker downloads PostgreSQL and Python. When you see `Starting development server`, open **http://127.0.0.1:8000**. Log in with the test accounts from step 7.
+
+What it does for you, every time:
+
+- creates or updates the tables (`migrate`);
+- loads the sample data and the test accounts, only if the database is empty;
+- starts the site, which reloads by itself when you change the code;
+- imports new posts into the *Review queue* at the start and then every hour, and sends the reminders every 10 minutes.
+
+The terminal shows what the site and the importer are doing, including the emails (sign-up confirmation, reminders). Press `Ctrl+C` to stop everything. Your data is kept for the next time.
+
+| Command | What it does |
+|---|---|
+| `docker compose up -d` | Starts everything in the background, without filling the terminal |
+| `docker compose logs -f web` | Shows what the site prints (add `jobs` for the importer) |
+| `docker compose stop` | Stops everything and keeps the data |
+| `docker compose up --build` | Needed after `requirements.txt` changes |
+| `docker compose exec web python manage.py test` | Runs any `manage.py` command inside Docker, here the tests |
 
 Commands are shown for **Mac and Linux**, with the **Windows** version where it differs. On Windows, use PowerShell.
 
@@ -39,7 +71,7 @@ Every command from here on is run **inside the `EUnited` folder**.
 Make sure Docker Desktop is open, then:
 
 ```bash
-docker compose up -d
+docker compose up -d db
 ```
 
 The first time, Docker downloads PostgreSQL, which takes a minute or two. Check that it is running:
@@ -121,7 +153,7 @@ These accounts are for development only. Never run `seed_demo` on the live site.
 
 ```bash
 cd EUnited
-docker compose up -d                 # only if Docker was closed or the computer restarted
+docker compose up -d db              # only if Docker was closed or the computer restarted
 source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
 git pull                             # get the latest changes
 pip install -r requirements.txt      # only needed if requirements.txt changed
@@ -143,8 +175,9 @@ It should end with `OK`. The tests use their own database, which Django creates 
 |---|---|
 | `python manage.py seed_demo --reset` | Deletes all posts and loads the sample posts again |
 | `python manage.py send_reminders` | Sends the reminders that are due (printed in the terminal) |
+| `python manage.py import_posts` | Imports real news from sum.ba, unical.it and eupeace.eu as drafts in the *Review queue*. Add `--dry-run` to only see the list |
 | `python manage.py createsuperuser` | Creates a superadmin with your own email |
-| `docker compose stop` | Stops the database and keeps the data |
+| `docker compose stop` | Stops the database (and the site, if it runs in Docker) and keeps the data |
 | `docker compose down -v` | Deletes the database **and all its data**, to start from zero |
 
 ---
@@ -155,10 +188,10 @@ It should end with `OK`. The tests use their own database, which Django creates 
 The environment isn't active. Run `source .venv/bin/activate`, or use `python3` outside the environment.
 
 **`connection refused` … `port 5432`** or **`could not connect to server`**
-The database isn't running. Open Docker Desktop, run `docker compose up -d`, and check with `docker compose ps`.
+The database isn't running. Open Docker Desktop, run `docker compose up -d db`, and check with `docker compose ps`.
 
 **`port is already allocated`** when starting the database
-Another PostgreSQL is already using port 5432, for example Postgres.app or one installed with Homebrew. Stop it (Postgres.app: *Stop*; Homebrew: `brew services stop postgresql`; Windows: stop the "postgresql" service in *Services*) and run `docker compose up -d` again.
+Another PostgreSQL is already using port 5432, for example Postgres.app or one installed with Homebrew. Stop it (Postgres.app: *Stop*; Homebrew: `brew services stop postgresql`; Windows: stop the "postgresql" service in *Services*) and run `docker compose up -d db` again.
 
 **`Error: That port is already in use`** when starting the site
 Another `runserver` is already open in some terminal. Close it, or start this one on another port: `python manage.py runserver 8001`.

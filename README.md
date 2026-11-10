@@ -13,6 +13,7 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
 - **Bell ("Remind me")**: follow a post to get an email and an in-app reminder 3 days and 1 day before the deadline. The bell icon in the header shows unread reminders.
 - **Accounts**: sign up with a university email only (`@sum.ba`, `@unical.it`, including sub-domains). The account is confirmed with an email link. Log in with your email.
 - **Student clubs** (`/submit/`): members of a verified club (for example SWITCH) submit posts. Every submission waits for approval.
+- **Importer**: `python manage.py import_posts` reads the news of sum.ba, unical.it and eupeace.eu and adds every new item to the Review queue as a draft. See [The importer](#the-importer) below.
 - **Admin panel** (`/admin/`):
   - The **Review queue** shows drafts and posts waiting for approval.
   - Actions: *Approve and publish*, *Reject* (the club sees the reason), *Hide*.
@@ -30,7 +31,7 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
 
 ## Not built yet (next steps)
 
-- **Importer**: automatic import from sum.ba, unical.it and eupeace.eu into the review queue. The `Source` table is ready.
+- **Importer on a schedule, on the server**: `docker compose up` runs it every hour on your computer. The server needs its own cron job (see below).
 - **Translate to English** button: needs a translation API key.
 - **Discuss** button: becomes a link once Euro-Chat exists.
 - Deploy. Hosting is decided later.
@@ -39,11 +40,20 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
 
 **First time? Follow [SETUP.md](SETUP.md)**: a step-by-step guide for Mac, Windows and Linux, with the test accounts and fixes for common problems.
 
-In short, you need Docker Desktop and Python 3.11 or newer:
+The quick way needs only Docker Desktop. One command starts the database, the site and the importer:
 
 ```bash
 cd EUnited
-docker compose up -d             # PostgreSQL in Docker
+docker compose up                # then open http://127.0.0.1:8000
+```
+
+It updates the tables, loads the sample data the first time, imports new posts every hour and sends the reminders every 10 minutes.
+
+To run the site with your own Python instead (3.11 or newer), start only the database in Docker:
+
+```bash
+cd EUnited
+docker compose up -d db          # PostgreSQL in Docker
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -75,8 +85,36 @@ During development, emails (sign-up confirmation, reminders) are printed in the 
 python manage.py test                  # run all tests
 python manage.py seed_demo --reset     # delete all posts and reload sample data
 python manage.py send_reminders        # send due reminders (run every ~10 min on the server)
+python manage.py import_posts          # import new posts from the sources (run every hour on the server)
+python manage.py import_posts --dry-run   # only show what would be imported
 python manage.py createsuperuser       # create a real superadmin
 ```
+
+## The importer
+
+The importer reads the websites listed in *Sources* in the admin panel. A source is one of two kinds:
+
+| Kind | Address to enter | How it works |
+|---|---|---|
+| RSS feed | The feed | Takes the title, summary, text and image of each item in the feed. |
+| Scraping | The page that lists the news | Opens every news link on that page and reads its title, description and image (the Open Graph tags that sites add for social networks). The *link pattern* says which links are news. |
+
+`seed_demo` adds these three sources:
+
+| Source | Kind | Address |
+|---|---|---|
+| UNICAL news | RSS feed | `https://www.unical.it/contents/news/rss` |
+| SUM news | Scraping | `https://www.sum.ba/objave/novosti` |
+| EUPeace news | Scraping | `https://www.eupeace.eu/news/` |
+
+What to know:
+
+- Every imported post is a **draft of type News**, in the language of its source. Nothing reaches the Pulse until a superadmin publishes it. If it is really a mobility opportunity or an event, change the type and add the dates in the Review queue.
+- A post is recognised by the address of its original page, so the same news is never imported twice. **Reject or hide** an imported post you don't want. If you delete it, the next run imports it again.
+- One run takes at most 20 new posts from each source (`PULSE_IMPORT_LIMIT` in the settings).
+- If a source can't be read, the command says why and goes on with the other sources.
+- In the admin panel, select sources in *Sources* and choose *Import new posts from selected sources now* to run it by hand.
+- On the server, run it every hour with cron: `0 * * * *  cd /path/to/EUnited && .venv/bin/python manage.py import_posts`
 
 ## Project structure
 
@@ -86,13 +124,15 @@ accounts/     users (log in with email), roles, universities, student clubs, sig
 pulse/        the Pulse: posts, tags, sources, likes, bell/follows, notifications
   models.py      data model (see the spec)
   services.py    likes, bell, reminder scheduling and sending
+  importer.py    reads RSS feeds and news pages, creates drafts
   admin.py       admin panel + review queue
   views.py       feed, archive, post page, likes, bell, club submissions
-  management/commands/   seed_demo, send_reminders
+  management/commands/   seed_demo, send_reminders, import_posts
 templates/    base layout
 static/css/   eunited.css (mobile-first styles, no framework)
 static/fonts/ Archivo font files, self-hosted (OFL licence)
-docker-compose.yml   PostgreSQL for local development
+docker-compose.yml   the whole project for local development: database, site, background jobs
+Dockerfile, docker/  the image of the site, and the scripts that start it
 SETUP.md      step-by-step guide to run the project
 ```
 
