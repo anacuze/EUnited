@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -18,10 +19,22 @@ class Source(models.Model):
         SCRAPE = "scrape", "Scraping"
 
     name = models.CharField(max_length=200)
-    url = models.URLField(unique=True)
+    url = models.URLField(
+        unique=True,
+        help_text="RSS feed: the address of the feed. Scraping: the page that lists the news.",
+    )
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.SCRAPE)
+    link_pattern = models.CharField(
+        max_length=300, blank=True,
+        help_text="Scraping only. A regular expression that the address of a single news page "
+        "matches, e.g. /objave/novosti/. Leave empty to take every link below the listing page.",
+    )
+    language = models.CharField(
+        max_length=10, default="en",
+        help_text="Language code of this website's posts (en, hr, it). Used when the page doesn't say.",
+    )
     university = models.ForeignKey(University, on_delete=models.PROTECT, related_name="sources")
-    active = models.BooleanField(default=True)
+    active = models.BooleanField(default=True, help_text="The importer skips sources that are not active.")
     last_checked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -29,6 +42,13 @@ class Source(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        if self.link_pattern:
+            try:
+                re.compile(self.link_pattern)
+            except re.error as exc:
+                raise ValidationError({"link_pattern": f"Not a valid regular expression: {exc}"})
 
 
 class Tag(models.Model):
@@ -106,9 +126,9 @@ class Post(models.Model):
     title = models.CharField(max_length=250)
     summary = models.CharField(max_length=500, help_text="One or two sentences shown on the card.")
     body = models.TextField(blank=True)
-    image_url = models.URLField(blank=True)
+    image_url = models.URLField(blank=True, max_length=500)
     source_url = models.URLField(
-        blank=True, help_text="Original page. Must be unique, which stops duplicate imports."
+        blank=True, max_length=500, help_text="Original page. Must be unique, which stops duplicate imports."
     )
     language = models.CharField(
         max_length=10, default="en", help_text="Language code of the post, e.g. en, hr, it."

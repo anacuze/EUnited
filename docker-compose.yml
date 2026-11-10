@@ -1,5 +1,24 @@
-# PostgreSQL for local development. Start it with:  docker compose up -d
-# The project connects to it by default (see DATABASES in eunited/settings.py).
+# EUnited for local development. Start everything with:  docker compose up
+#
+#   db    PostgreSQL
+#   web   the site at http://127.0.0.1:8000. On start it updates the tables and, the first
+#         time, loads the sample data. It reloads by itself when you change the code.
+#   jobs  imports new posts every hour and sends the reminders every 10 minutes.
+#
+# To run the site with your own Python instead, start only the database:
+#   docker compose up -d db
+x-app: &app
+  build: .
+  image: eunited-dev
+  environment:
+    DATABASE_URL: postgres://eunited:eunited@db:5432/eunited
+    EUNITED_SEED_DEMO: "1"
+  volumes:
+    - .:/app
+  depends_on:
+    db:
+      condition: service_healthy
+
 services:
   db:
     image: postgres:17
@@ -11,6 +30,21 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eunited -d eunited"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  web:
+    <<: *app
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  jobs:
+    <<: *app
+    entrypoint: ["sh", "docker/jobs.sh"]
+    command: []
 
 volumes:
   pgdata:
