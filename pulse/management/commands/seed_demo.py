@@ -24,10 +24,12 @@ UNIVERSITIES = [
     ("EUPeace", "EUPeace alliance", "", "https://eupeace.eu"),
 ]
 
+# (name, address, kind, link pattern, language, university). These are the real pages the
+# importer reads; `python manage.py import_posts` fetches from them.
 SOURCES = [
-    ("SUM news", "https://www.sum.ba", "SUM"),
-    ("UNICAL news", "https://www.unical.it", "UNICAL"),
-    ("EUPeace news", "https://eupeace.eu", "EUPeace"),
+    ("SUM news", "https://www.sum.ba/objave/novosti", "scrape", r"/objave/novosti/[^/?#]+", "hr", "SUM"),
+    ("UNICAL news", "https://www.unical.it/contents/news/rss", "rss", "", "it", "UNICAL"),
+    ("EUPeace news", "https://www.eupeace.eu/news/", "scrape", r"eupeace\.eu/[a-z0-9]+(-[a-z0-9]+){3,}/?$", "en", "EUPeace"),
 ]
 
 TAGS = ["Erasmus", "Scholarship", "IT", "Law", "Sport", "Culture", "Research", "Career", "Peace"]
@@ -51,9 +53,11 @@ class Command(BaseCommand):
             )
 
         sources = {}
-        for name, url, uni in SOURCES:
-            sources[uni], _ = Source.objects.get_or_create(
-                url=url, defaults={"name": name, "university": unis[uni]}
+        for name, url, kind, pattern, language, uni in SOURCES:
+            sources[uni], _ = Source.objects.update_or_create(
+                name=name,
+                defaults={"url": url, "kind": kind, "link_pattern": pattern, "language": language,
+                          "university": unis[uni]},
             )
 
         tags = {}

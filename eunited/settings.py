@@ -114,3 +114,5 @@ PULSE_CLOSING_SOON_DAYS = 7
 PULSE_REMINDER_DAYS = [3, 1]
 # Posts per page in the feed.
 PULSE_PAGE_SIZE = 12
+# Most posts the importer takes from one source in one run.
+PULSE_IMPORT_LIMIT = 20

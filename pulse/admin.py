@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.utils import timezone
 from django.utils.html import format_html
 
+from .importer import import_all
 from .models import Follow, Like, Notification, Post, ReviewQueue, Source, Tag
 from .services import reschedule_for_post
 
@@ -143,8 +144,23 @@ class ReviewQueueAdmin(PostAdmin):
 
 @admin.register(Source)
 class SourceAdmin(admin.ModelAdmin):
-    list_display = ("name", "url", "kind", "university", "active", "last_checked_at")
+    list_display = ("name", "url", "kind", "university", "language", "active", "last_checked_at")
     list_filter = ("kind", "active", "university")
+    readonly_fields = ("last_checked_at",)
+    actions = ["import_now"]
+
+    @admin.action(description="Import new posts from selected sources now", permissions=["change"])
+    def import_now(self, request, queryset):
+        for result in import_all(queryset.select_related("university")):
+            level = messages.ERROR if result.failed else messages.SUCCESS
+            text = f"{result.source.name}: {len(result.created)} new post(s) added to the Review queue."
+            if result.errors:
+                shown = " ".join(result.errors[:3])
+                more = f" (and {len(result.errors) - 3} more)" if len(result.errors) > 3 else ""
+                text += f" Problems: {shown}{more}"
+                if not result.failed:
+                    level = messages.WARNING
+            self.message_user(request, text, level)
 
 
 @admin.register(Tag)
