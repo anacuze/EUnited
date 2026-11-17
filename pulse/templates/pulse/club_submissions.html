@@ -4,6 +4,12 @@
 <h1>Submit a post</h1>
 <p class="muted">Every post is checked by an admin before it appears in the Pulse.</p>
 
+{% if form.errors %}
+  <div class="message message-error" role="alert">
+    <strong>Not sent yet.</strong> {{ form.errors|length }} field{{ form.errors|length|pluralize:" needs,s need" }} fixing: look for the red text below.
+  </div>
+{% endif %}
+
 <form method="post" class="form-card">
   {% csrf_token %}
   {{ form.non_field_errors }}

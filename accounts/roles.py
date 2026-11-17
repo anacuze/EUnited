@@ -25,6 +25,12 @@ ROLE_PERMISSIONS = {
         "pulse.hide_post",
         "pulse.view_tag",
         "pulse.view_reviewqueue",
+        "pulse.view_comment",
+        "pulse.hide_comment",
+        "pulse.view_blockedword",
+        "pulse.add_blockedword",
+        "pulse.change_blockedword",
+        "pulse.delete_blockedword",
     ],
 }
 

@@ -1,0 +1,63 @@
+{# The comments under a post. Expects: post, comments, reported, approvable, comment_form, can_moderate, user #}
+<section class="comments" id="comments" aria-labelledby="comments-title">
+  <h2 class="section-title" id="comments-title">Comments{% if post.comment_count %} <span class="comments-count">{{ post.comment_count }}</span>{% endif %}</h2>
+
+  {% for comment in comments %}
+    <article class="comment{% if comment.status != 'visible' %} is-held{% endif %}" id="comment-{{ comment.pk }}">
+      <header class="comment-head">
+        <strong>{{ comment.author.display_name }}</strong>
+        {% if comment.author.university %}<span class="uni">{{ comment.author.university.short_name }}</span>{% endif %}
+        <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at|date:"j M Y, H:i" }}</time>
+      </header>
+      {% if comment.status != "visible" %}
+        <p class="comment-note">
+          {% if can_moderate %}Waiting for a {% if comment.pk in approvable %}moderator{% else %}superadmin{% endif %}{% if comment.moderation_note %}: {{ comment.moderation_note }}{% endif %}
+            {% if comment.pk not in approvable %}<br>Written by a moderator, so only a superadmin can approve it.{% endif %}
+          {% else %}Waiting for a moderator. Only you can see this comment for now.{% endif %}
+        </p>
+      {% endif %}
+      <div class="comment-body">{{ comment.body|linebreaksbr }}</div>
+      {% if user.is_authenticated %}
+        <div class="comment-actions">
+          {% if can_moderate %}
+            <form method="post" action="{% url 'pulse:comment_moderate' comment.pk %}">
+              {% csrf_token %}
+              {% if comment.pk in approvable %}<button type="submit" name="action" value="approve" class="link-button">Approve</button>{% endif %}
+              <button type="submit" name="action" value="hide" class="link-button">Hide</button>
+            </form>
+          {% endif %}
+          {% if comment.author_id == user.pk %}
+            <form method="post" action="{% url 'pulse:comment_delete' comment.pk %}">
+              {% csrf_token %}<button type="submit" class="link-button">Delete</button>
+            </form>
+          {% elif comment.pk in reported %}
+            <span class="muted">Reported</span>
+          {% elif comment.status == "visible" and not can_moderate %}
+            <form method="post" action="{% url 'pulse:comment_report' comment.pk %}">
+              {% csrf_token %}<button type="submit" class="link-button" title="Tell the moderators this comment breaks the rules">Report</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endif %}
+    </article>
+  {% empty %}
+    <p class="empty">{% if post.comments_open %}No comments yet. Start the discussion.{% else %}No comments.{% endif %}</p>
+  {% endfor %}
+
+  {% if not post.comments_open %}
+    <p class="muted comments-closed">This post is in the archive, so comments are closed.</p>
+  {% elif user.is_authenticated %}
+    <form method="post" action="{% url 'pulse:comment_add' post.pk %}#comment-form" class="comment-form{% if comment_form.errors %} has-error{% endif %}" id="comment-form">
+      {% csrf_token %}
+      <label for="{{ comment_form.body.id_for_label }}">Add a comment as {{ user.display_name }}</label>
+      {{ comment_form.body }}
+      {% for e in comment_form.body.errors %}<small class="error" role="alert">{{ e }}</small>{% endfor %}
+      <div class="comment-form-foot">
+        <small class="muted">Be kind and stay on topic. <a href="{% url 'pulse:rules' %}">Community rules</a></small>
+        <button type="submit" class="btn">Post comment</button>
+      </div>
+    </form>
+  {% else %}
+    <p class="comments-login"><a href="{% url 'accounts:login' %}?next={{ post.get_absolute_url|urlencode }}%23comments">Log in</a> with your university account to comment.</p>
+  {% endif %}
+</section>

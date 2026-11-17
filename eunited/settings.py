@@ -116,3 +116,17 @@ PULSE_REMINDER_DAYS = [3, 1]
 PULSE_PAGE_SIZE = 12
 # Most posts the importer takes from one source in one run.
 PULSE_IMPORT_LIMIT = 20
+
+# --- Comments -------------------------------------------------------------------
+# A student has to wait this many seconds between two comments.
+PULSE_COMMENT_MIN_SECONDS = 30
+# A comment with more links than this is refused.
+PULSE_COMMENT_MAX_LINKS = 2
+# A visible comment is taken down until a moderator checks it once this many students report it.
+PULSE_COMMENT_REPORTS_TO_HOLD = 3
+# Optional automatic check of every comment by an outside service. Off when empty.
+# "pulse.moderation.openai_classifier" sends the text of each comment to OpenAI's free
+# Moderation API and needs OPENAI_API_KEY. Read "Comments" in README.md before switching it on:
+# comments leave this server, so the privacy policy has to say so.
+PULSE_COMMENT_CLASSIFIER = os.environ.get("PULSE_COMMENT_CLASSIFIER", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")

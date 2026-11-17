@@ -12,8 +12,8 @@ from django.views.decorators.http import require_POST
 from accounts.models import University
 
 from . import services
-from .forms import ClubPostForm
-from .models import Follow, Like, Post, Tag
+from .forms import ClubPostForm, CommentForm
+from .models import Comment, CommentReport, Follow, Like, Post, Tag
 
 
 def _apply_filters(request, queryset):
@@ -41,7 +41,12 @@ def _with_counts(queryset):
     # newest posts first.
     return (
         queryset.select_related("university", "club").prefetch_related("tags")
-        .annotate(like_count=Count("likes", distinct=True))
+        .annotate(
+            like_count=Count("likes", distinct=True),
+            comment_count=Count(
+                "comments", filter=Q(comments__status=Comment.Status.VISIBLE), distinct=True
+            ),
+        )
         .order_by(*Post._meta.ordering)
     )
 
@@ -95,16 +100,47 @@ def archive(request):
     return _render_list(request, Post.objects.archived(), "Archive", is_archive=True)
 
 
+def _comments_for(user, post):
+    """The comments this user may see: visible ones, their own held ones, and for
+    moderators every comment that waits for a decision."""
+    shown = Q(status=Comment.Status.VISIBLE)
+    if user.is_authenticated:
+        if user.has_perm("pulse.hide_comment"):
+            shown |= Q(status=Comment.Status.HELD)
+        else:
+            shown |= Q(status=Comment.Status.HELD, author=user)
+    return post.comments.filter(shown).select_related("author__university")
+
+
+def _render_post(request, post, comment_form=None):
+    liked, followed = _user_marks(request.user, [post])
+    comments = list(_comments_for(request.user, post))
+    reported = set()
+    if request.user.is_authenticated:
+        reported = set(
+            CommentReport.objects.filter(reporter=request.user, comment__in=comments)
+            .values_list("comment_id", flat=True)
+        )
+    return render(request, "pulse/post_detail.html", {
+        "post": post, "liked": liked, "followed": followed,
+        "comments": comments,
+        "reported": reported,
+        "comment_form": comment_form or CommentForm(),
+        "can_moderate": request.user.has_perm("pulse.hide_comment"),
+        "approvable": {
+            c.pk for c in comments
+            if c.status != Comment.Status.VISIBLE and services.can_approve_comment(request.user, c)
+        },
+    })
+
+
 def post_detail(request, pk):
     post = get_object_or_404(_with_counts(Post.objects.all()), pk=pk)
     visible = post.status in (Post.Status.PUBLISHED, Post.Status.ARCHIVED)
     is_owner = request.user.is_authenticated and post.author_id == request.user.pk
     if not visible and not is_owner and not request.user.is_staff:
         return render(request, "pulse/not_found.html", status=404)
-    liked, followed = _user_marks(request.user, [post])
-    return render(request, "pulse/post_detail.html", {
-        "post": post, "liked": liked, "followed": followed,
-    })
+    return _render_post(request, post)
 
 
 def _back(request, post):
@@ -171,3 +207,82 @@ def club_submissions(request):
         form = ClubPostForm(user=request.user)
     posts = Post.objects.filter(author=request.user).order_by("-created_at")
     return render(request, "pulse/club_submissions.html", {"form": form, "posts": posts})
+
+
+# --- comments -------------------------------------------------------------------
+
+
+def _to_comments(post):
+    return redirect(post.get_absolute_url() + "#comments")
+
+
+@login_required
+@require_POST
+def comment_add(request, pk):
+    post = get_object_or_404(_with_counts(Post.objects.published()), pk=pk)
+    if not post.comments_open:
+        messages.error(request, "Comments are closed on this post.")
+        return _to_comments(post)
+    form = CommentForm(request.POST)
+    if form.is_valid():
+        try:
+            comment = services.add_comment(request.user, post, form.cleaned_data["body"])
+        except services.CommentRefused as refused:
+            form.add_error("body", str(refused))
+        else:
+            if comment.status == Comment.Status.HELD:
+                messages.info(
+                    request,
+                    "Your comment will appear once a moderator has checked it. Only you can see it for now.",
+                )
+            return _to_comments(post)
+    # Show the page again with the text the student wrote and what was wrong with it.
+    return _render_post(request, post, comment_form=form)
+
+
+@login_required
+@require_POST
+def comment_delete(request, pk):
+    """Students delete their own comments. Moderators hide comments instead (comment_moderate)."""
+    comment = get_object_or_404(Comment.objects.select_related("post"), pk=pk, author=request.user)
+    comment.delete()
+    messages.info(request, "Your comment was deleted.")
+    return _to_comments(comment.post)
+
+
+@login_required
+@require_POST
+def comment_report(request, pk):
+    comment = get_object_or_404(
+        Comment.objects.select_related("post"), pk=pk, status=Comment.Status.VISIBLE
+    )
+    if comment.author_id == request.user.pk:
+        return HttpResponseForbidden("You can't report your own comment. You can delete it.")
+    services.report_comment(request.user, comment)
+    messages.success(request, "Thanks. A moderator will look at that comment.")
+    return _to_comments(comment.post)
+
+
+@login_required
+@require_POST
+def comment_moderate(request, pk):
+    """A moderator hides a comment, or approves one that was waiting."""
+    if not request.user.has_perm("pulse.hide_comment"):
+        return HttpResponseForbidden("Only moderators can do this.")
+    comment = get_object_or_404(Comment.objects.select_related("post", "author"), pk=pk)
+    if request.POST.get("action") == "approve":
+        if not services.can_approve_comment(request.user, comment):
+            return HttpResponseForbidden("Only a superadmin can approve a comment written by a moderator.")
+        services.set_comment_status(comment, Comment.Status.VISIBLE, request.user)
+        messages.success(request, "Comment approved. Everyone can see it now.")
+    else:
+        services.set_comment_status(comment, Comment.Status.HIDDEN, request.user)
+        messages.info(request, "Comment hidden. You can restore it in the admin panel (Comments).")
+    return _to_comments(comment.post)
+
+
+def rules(request):
+    return render(request, "pulse/rules.html", {
+        "max_links": settings.PULSE_COMMENT_MAX_LINKS,
+        "automatic_check": bool(settings.PULSE_COMMENT_CLASSIFIER),
+    })

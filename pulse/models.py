@@ -246,6 +246,11 @@ class Post(models.Model):
         return bool(end and end < timezone.now()) or self.status == self.Status.ARCHIVED
 
     @property
+    def comments_open(self):
+        """New comments are allowed on published posts until they move to the archive."""
+        return self.status == self.Status.PUBLISHED and not self.is_expired
+
+    @property
     def can_follow(self):
         """Only posts with an upcoming date can be followed with the bell."""
         return bool(self.key_date and self.key_date > timezone.now())
@@ -336,3 +341,77 @@ class Notification(models.Model):
         else:
             when = f"in {self.days_before} days"
         return f"{what} {when}: {self.post.title}"
+
+
+class Comment(models.Model):
+    """A student's comment under a post. Shown at once, unless the automatic check holds it."""
+
+    class Status(models.TextChoices):
+        VISIBLE = "visible", "Visible"
+        HELD = "held", "Waiting for a moderator"
+        HIDDEN = "hidden", "Hidden by a moderator"
+
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments"
+    )
+    body = models.TextField(max_length=1000)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.VISIBLE)
+    moderation_note = models.CharField(
+        max_length=300, blank=True,
+        help_text="Why the comment is waiting for a moderator (written by the automatic check).",
+    )
+    moderated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="moderated_comments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        permissions = [("hide_comment", "Can hide and restore comments")]
+        indexes = [models.Index(fields=["post", "status", "created_at"])]
+
+    def __str__(self):
+        text = " ".join(self.body.split())
+        return text if len(text) <= 60 else text[:59] + "…"
+
+    def get_absolute_url(self):
+        return f"{self.post.get_absolute_url()}#comment-{self.pk}"
+
+
+class CommentReport(models.Model):
+    """A student flags a comment for the moderators. One report per student per comment."""
+
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="reports")
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comment_reports"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["comment", "reporter"], name="one_report_per_user")
+        ]
+
+    def __str__(self):
+        return f"{self.reporter} reported: {self.comment}"
+
+
+class BlockedWord(models.Model):
+    """A word or phrase that sends a comment to the moderators instead of publishing it."""
+
+    word = models.CharField(
+        max_length=100, unique=True,
+        help_text="Matches whole words only and ignores capital letters. Any language.",
+    )
+
+    class Meta:
+        ordering = ["word"]
+
+    def __str__(self):
+        return self.word
+
+    def save(self, *args, **kwargs):
+        self.word = " ".join(self.word.casefold().split())
+        super().save(*args, **kwargs)
