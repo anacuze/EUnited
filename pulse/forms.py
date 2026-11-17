@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Post, Tag
+from .models import Comment, Post, Tag
 
 
 class DateTimeInput(forms.DateTimeInput):
@@ -58,3 +58,11 @@ class ClubPostForm(forms.ModelForm):
         if self.cleaned_data.get("club"):
             self.instance.university = self.cleaned_data["club"].university
         super()._post_clean()
+
+
+class CommentForm(forms.Form):
+    body = forms.CharField(
+        label="Your comment",
+        max_length=Comment._meta.get_field("body").max_length,
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Write a comment"}),
+    )

@@ -13,6 +13,10 @@ x-app: &app
   environment:
     DATABASE_URL: postgres://eunited:eunited@db:5432/eunited
     EUNITED_SEED_DEMO: "1"
+    # Optional automatic check of comments. Both are empty (off) unless you set them in a
+    # file called .env next to this one: copy .env.example and see "Comments" in README.md.
+    PULSE_COMMENT_CLASSIFIER: ${PULSE_COMMENT_CLASSIFIER:-}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   volumes:
     - .:/app
   depends_on:

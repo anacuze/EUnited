@@ -405,3 +405,46 @@ input[type=checkbox], input[type=radio] { width: auto; padding: 0; margin: 0 .4r
 .status-pending { background: #fbf0d4; color: #7a4d00; }
 .status-published { background: #dcefe2; color: var(--ok); }
 .status-rejected { background: #fbe2e5; color: #a3202f; }
+
+/* ---------- comments ---------- */
+a.action { text-decoration: none; }
+.comments { margin-top: 2rem; scroll-margin-top: calc(var(--header-h) + 1rem); }
+.comments .section-title { display: flex; align-items: center; gap: .5rem; margin-top: 0; }
+.comments-count {
+  padding: .1rem .55rem; border-radius: 999px; font-size: .85rem; font-weight: 650;
+  background: var(--bg-deep); color: var(--text-soft); font-variant-numeric: tabular-nums;
+}
+.comment {
+  padding: .9rem 1.1rem .6rem; margin-bottom: .6rem; scroll-margin-top: calc(var(--header-h) + 1rem);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-ticket);
+}
+.comment:target { border-color: var(--primary); }
+.comment.is-held { background: #fffaf0; border-style: dashed; border-color: #e3c98f; }
+.comment-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .5rem; font-size: .93rem; }
+.comment-head .uni { font-size: .8rem; font-weight: 700; color: var(--text-soft); }
+.comment-head time { margin-left: auto; color: var(--muted); font-size: .84rem; font-variant-numeric: tabular-nums; }
+.comment-note { margin: .4rem 0 0; font-size: .86rem; font-weight: 600; color: #7a4d00; }
+.comment-body { margin-top: .35rem; line-height: 1.55; overflow-wrap: anywhere; }
+.comment-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .2rem 1rem; margin-top: .35rem; font-size: .84rem; }
+.comment-actions form { display: flex; gap: 1rem; margin: 0; }
+.link-button {
+  padding: .25rem 0; border: 0; background: none; cursor: pointer;
+  color: var(--muted); font: inherit; font-weight: 600;
+}
+.link-button:hover { color: var(--text); text-decoration: underline; text-underline-offset: .18em; }
+.comment-form {
+  display: grid; gap: .5rem; margin-top: 1rem; padding: 1rem 1.1rem;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+  scroll-margin-top: calc(var(--header-h) + 1rem);
+}
+.comment-form label { font-size: .93rem; font-weight: 600; }
+.comment-form textarea { resize: vertical; min-height: 5.5rem; }
+.comment-form-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem 1rem; }
+.comments-login, .comments-closed { margin: 1rem 0 0; }
+
+/* ---------- text pages (community rules) ---------- */
+.prose { max-width: 65ch; line-height: 1.65; }
+.prose h2 { margin: 1.75rem 0 .5rem; }
+.prose ul { padding-left: 1.2rem; }
+.prose li { margin-bottom: .4rem; }
+.footer p + p { margin-top: .4rem; }

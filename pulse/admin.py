@@ -1,10 +1,13 @@
 from django.contrib import admin, messages
+from django.db.models import Count
 from django.utils import timezone
 from django.utils.html import format_html
 
 from .importer import import_all
-from .models import Follow, Like, Notification, Post, ReviewQueue, Source, Tag
-from .services import reschedule_for_post
+from .models import (
+    BlockedWord, Comment, Follow, Like, Notification, Post, ReviewQueue, Source, Tag,
+)
+from .services import can_approve_comment, reschedule_for_post, set_comment_status
 
 
 class PublishPermissionMixin:
@@ -179,3 +182,85 @@ class NotificationAdmin(admin.ModelAdmin):
 
 admin.site.register(Like)
 admin.site.register(Follow)
+
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    """Comments, with the ones that need a moderator first: waiting, then most reported."""
+
+    list_display = ("__str__", "author", "post", "status_badge", "report_count", "moderation_note", "created_at")
+    list_filter = ("status", "post__university")
+    search_fields = ("body", "author__email")
+    raw_id_fields = ("post", "author")
+    readonly_fields = ("post", "author", "body", "moderation_note", "moderated_by", "created_at")
+    fields = ("post", "author", "body", "status", "moderation_note", "moderated_by", "created_at")
+    actions = ["hide", "restore"]
+
+    def get_queryset(self, request):
+        # Built by hand instead of super(): the ordering below uses report_total, which
+        # has to be added to the query before it is sorted.
+        return (
+            Comment.objects.select_related("author", "post")
+            .annotate(report_total=Count("reports"))
+            .order_by(*self.get_ordering(request))
+        )
+
+    def get_ordering(self, request):
+        # "held" sorts before "hidden" and "visible", so waiting comments come first.
+        return ["status", "-report_total", "-created_at"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_hide_permission(self, request):
+        return request.user.has_perm("pulse.hide_comment")
+
+    @admin.display(description="Status", ordering="status")
+    def status_badge(self, obj):
+        colors = {"visible": "#1a8a4a", "held": "#d98200", "hidden": "#555"}
+        return format_html('<b style="color:{}">{}</b>', colors.get(obj.status, "#000"), obj.get_status_display())
+
+    @admin.display(description="Reports", ordering="report_total")
+    def report_count(self, obj):
+        return obj.report_total
+
+    @admin.action(description="Hide selected comments", permissions=["hide"])
+    def hide(self, request, queryset):
+        for comment in queryset:
+            set_comment_status(comment, Comment.Status.HIDDEN, request.user)
+        self.message_user(request, f"{len(queryset)} comment(s) hidden.", messages.SUCCESS)
+
+    @admin.action(description="Approve / restore selected comments (make visible)", permissions=["hide"])
+    def restore(self, request, queryset):
+        done = refused = 0
+        for comment in queryset:
+            if can_approve_comment(request.user, comment):
+                set_comment_status(comment, Comment.Status.VISIBLE, request.user)
+                done += 1
+            else:
+                refused += 1
+        self.message_user(request, f"{done} comment(s) visible again.", messages.SUCCESS)
+        if refused:
+            self.message_user(
+                request,
+                f"{refused} comment(s) left as they were: a comment written by a moderator "
+                "can only be approved by a superadmin.",
+                messages.WARNING,
+            )
+
+    def save_model(self, request, obj, form, change):
+        if "status" in form.changed_data:
+            if obj.status == Comment.Status.VISIBLE and not can_approve_comment(request.user, obj):
+                self.message_user(
+                    request,
+                    "Not changed: a comment written by a moderator can only be approved by a superadmin.",
+                    messages.ERROR,
+                )
+                return
+            obj.moderated_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(BlockedWord)
+class BlockedWordAdmin(admin.ModelAdmin):
+    search_fields = ("word",)

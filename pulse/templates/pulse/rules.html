@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Community rules · EUnited{% endblock %}
+{% block content %}
+<div class="prose">
+  <h1>Community rules</h1>
+  <p>EUnited is a place for students of the EUPeace universities. Everyone who comments has signed up with a university email address, and comments appear under your name.</p>
+
+  <h2>What we ask</h2>
+  <ul>
+    <li><strong>Be respectful.</strong> Disagree with ideas, not with people. No insults, harassment or threats.</li>
+    <li><strong>No hate.</strong> Nothing that attacks people for their nationality, ethnicity, religion, gender, sexual orientation or disability.</li>
+    <li><strong>Stay on topic.</strong> Comment on the post. No advertising and no spam.</li>
+    <li><strong>Respect privacy.</strong> Don't share other people's personal details, photos or private messages.</li>
+    <li><strong>Nothing illegal.</strong></li>
+  </ul>
+
+  <h2>How comments are checked</h2>
+  <ul>
+    <li>A comment appears as soon as you post it. A few simple rules apply automatically: a short wait between two comments, at most {{ max_links }} links, and no repeating the same comment.</li>
+    <li>A comment that contains a word from our list of blocked words{% if automatic_check %}, or that an automatic check flags as possibly abusive,{% endif %} is held back until a moderator has read it. You still see it, marked as waiting.</li>
+    {% if automatic_check %}<li>The automatic check is done by an outside service (OpenAI's Moderation API), which receives the text of the comment but not your name or email address.</li>{% endif %}
+    <li>Anyone logged in can <strong>report</strong> a comment. Moderators read every report, and a comment reported by several students is taken down until a moderator has decided.</li>
+    <li>Moderators can hide a comment that breaks these rules. A person, not a program, makes that decision.</li>
+  </ul>
+
+  <h2>If you disagree</h2>
+  <p>If your comment was held back or hidden and you think that was a mistake, write to the EUnited team and a moderator will look at it again. You can delete your own comments at any time, and they are deleted with your account.</p>
+</div>
+{% endblock %}

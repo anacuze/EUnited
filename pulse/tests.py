@@ -242,3 +242,13 @@ class EditorEditTests(PulseTestCase):
     def test_superadmin_change_keeps_post_published(self):
         self.save_as(self.admin, title="Edited by admin")
         self.assertEqual(self.post.status, Post.Status.PUBLISHED)
+
+
+class ClubSubmissionErrorTests(PulseTestCase):
+    def test_a_refused_submission_says_so_at_the_top(self):
+        self.client.force_login(self.club_user)
+        response = self.client.post(reverse("pulse:club_submissions"), {
+            "club": self.club.pk, "type": "event", "title": "Party", "summary": "Fun", "language": "en"})
+        self.assertContains(response, "Not sent yet.")
+        self.assertContains(response, "An event needs a start date and time.")
+        self.assertFalse(Post.objects.filter(title="Party").exists())

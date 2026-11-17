@@ -10,6 +10,7 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
 - **Closing soon**: a strip at the top of the feed showing deadlines and events in the next 7 days.
 - **Archive** (`/archive/`): posts whose deadline or event date has passed move here automatically.
 - **Likes**: one per student per post.
+- **Comments**: logged-in students comment under a post. Comments appear at once; a few automatic rules, a *Report* button and the moderators keep them in order. See [Comments](#comments) below.
 - **Bell ("Remind me")**: follow a post to get an email and an in-app reminder 3 days and 1 day before the deadline. The bell icon in the header shows unread reminders.
 - **Accounts**: sign up with a university email only (`@sum.ba`, `@unical.it`, including sub-domains). The account is confirmed with an email link. Log in with your email.
 - **Student clubs** (`/submit/`): members of a verified club (for example SWITCH) submit posts. Every submission waits for approval.
@@ -23,9 +24,9 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
     |---|---|
     | Superadmin | Everything |
     | Editor | Writes and edits posts, but cannot publish. Editing a published post sends it back for approval |
-    | Moderator | Can hide posts |
+    | Moderator | Can hide posts, hide or approve comments, and edit the list of blocked words |
     | Student club | Submits posts |
-    | Student | Reads, likes and sets reminders |
+    | Student | Reads, likes, comments and sets reminders |
 
   - Change a user's role in *Users*.
 
@@ -33,7 +34,7 @@ Euro-Chat and the Campus Mixer will be added as new Django apps next to `pulse/`
 
 - **Importer on a schedule, on the server**: `docker compose up` runs it every hour on your computer. The server needs its own cron job (see below).
 - **Translate to English** button: needs a translation API key.
-- **Discuss** button: becomes a link once Euro-Chat exists.
+- **Euro-Chat**: for now the **Discuss** button opens the comments of the post.
 - Deploy. Hosting is decided later.
 
 ## Run it on your computer
@@ -116,6 +117,45 @@ What to know:
 - In the admin panel, select sources in *Sources* and choose *Import new posts from selected sources now* to run it by hand.
 - On the server, run it every hour with cron: `0 * * * *  cd /path/to/EUnited && .venv/bin/python manage.py import_posts`
 
+## Comments
+
+Any logged-in student can comment on a published post. Comments are plain text, up to 1000 characters, shown oldest first with the author's name and university. Posts in the archive keep their comments but take no new ones. Students can delete their own comments, and a deleted account takes its comments with it.
+
+Every new comment goes through automatic checks (`pulse/moderation.py`). They only sort comments; a person makes every decision to hide one.
+
+| Check | What happens |
+|---|---|
+| Less than 30 seconds after the student's last comment | Refused, with a message |
+| The same text again on the same post | Refused, with a message |
+| More than 2 links | Refused, with a message |
+| Contains a word from *Blocked words* (whole words, any language) | Saved, but only the author and the moderators see it until a moderator approves it |
+| Reported by 3 students | Taken down until a moderator has checked it |
+
+The numbers are settings (`PULSE_COMMENT_...` in `eunited/settings.py`). The list of blocked words starts empty: moderators fill it in the admin panel.
+
+A moderator approves students' comments, never their own: a comment written by a moderator that the checks held back can only be approved by a superadmin. So a stolen moderator password is not enough to publish it.
+
+Moderators hide and approve comments on the post page itself, or in *Comments* in the admin panel, where comments that wait for a decision come first, then the most reported. The rules students see are at `/rules/` (`pulse/templates/pulse/rules.html`): change the text to fit your universities.
+
+### Optional: automatic check by OpenAI
+
+The project can also send every new comment to OpenAI's Moderation API, which is free, and hold the ones it flags for a moderator. It is **off by default**. To switch it on, set two environment variables:
+
+```
+PULSE_COMMENT_CLASSIFIER=pulse.moderation.openai_classifier
+OPENAI_API_KEY=...
+```
+
+With Docker, put them in a file called `.env` in the project folder (copy `.env.example`) and run `docker compose up -d`. Git ignores `.env`, so the key stays on your computer. Never write the key in a file that is committed.
+
+Before you do:
+
+- The text of every comment leaves the server and goes to OpenAI (not the author's name or email). The privacy policy has to say so, and the data protection officers of the universities should agree. The `/rules/` page mentions the check by itself once it is on.
+- Try it on real sentences in Croatian, Bosnian and Italian first. We have not measured how well it works in those languages.
+- If the service doesn't answer, comments go through as if the check were off.
+
+Another service can be plugged in the same way: `PULSE_COMMENT_CLASSIFIER` is the path of a function that takes the text and returns why the comment should be held, or an empty string.
+
 ## Project structure
 
 ```
@@ -123,10 +163,11 @@ eunited/      settings and main URLs
 accounts/     users (log in with email), roles, universities, student clubs, sign-up
 pulse/        the Pulse: posts, tags, sources, likes, bell/follows, notifications
   models.py      data model (see the spec)
-  services.py    likes, bell, reminder scheduling and sending
+  services.py    likes, bell, reminder scheduling and sending, comments
+  moderation.py  the automatic checks on a new comment
   importer.py    reads RSS feeds and news pages, creates drafts
   admin.py       admin panel + review queue
-  views.py       feed, archive, post page, likes, bell, club submissions
+  views.py       feed, archive, post page, likes, bell, comments, club submissions
   management/commands/   seed_demo, send_reminders, import_posts
 templates/    base layout
 static/css/   eunited.css (mobile-first styles, no framework)

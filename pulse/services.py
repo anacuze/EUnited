@@ -7,7 +7,8 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Follow, Like, Notification, Post
+from . import moderation
+from .models import Comment, CommentReport, Follow, Like, Notification, Post
 
 
 def toggle_like(user, post):
@@ -110,3 +111,63 @@ def send_due_reminders(now=None, base_url=None):
         notif.sent_at = now
         notif.save(update_fields=["sent_at"])
     return emails_sent
+
+
+# --- comments -------------------------------------------------------------------
+
+
+class CommentRefused(Exception):
+    """The comment was not saved. The message says why and is shown to the author."""
+
+
+def add_comment(user, post, body):
+    """Check and save a comment. Returns the Comment (visible or held); raises CommentRefused."""
+    if not post.comments_open:
+        raise CommentRefused("Comments are closed on this post.")
+    verdict = moderation.check_comment(user, post, body)
+    if verdict.action == moderation.REJECT:
+        raise CommentRefused(verdict.reason)
+    held = verdict.action == moderation.HOLD
+    return Comment.objects.create(
+        post=post,
+        author=user,
+        body=body,
+        status=Comment.Status.HELD if held else Comment.Status.VISIBLE,
+        moderation_note=verdict.reason if held else "",
+    )
+
+
+def report_comment(user, comment):
+    """Flag a comment for the moderators. Returns False if the user had already reported it."""
+    _, created = CommentReport.objects.get_or_create(comment=comment, reporter=user)
+    if (
+        created
+        and comment.status == Comment.Status.VISIBLE
+        and comment.moderated_by_id is None  # a moderator's decision is not overruled by reports
+        and comment.reports.count() >= settings.PULSE_COMMENT_REPORTS_TO_HOLD
+    ):
+        comment.status = Comment.Status.HELD
+        comment.moderation_note = "Reported by several students."
+        comment.save(update_fields=["status", "moderation_note"])
+    return created
+
+
+def can_approve_comment(user, comment):
+    """Who may make a held or hidden comment visible.
+
+    Moderators approve students' comments. A comment written by a moderator (or by a
+    superadmin) needs a superadmin: nobody approves their own comments, so a stolen
+    moderator password is not enough to publish something the checks held back.
+    """
+    if not user.has_perm("pulse.hide_comment"):
+        return False
+    if user.is_superuser:
+        return True
+    return comment.author_id != user.pk and not comment.author.has_perm("pulse.hide_comment")
+
+
+def set_comment_status(comment, status, by_user):
+    """A moderator hides a comment or makes it visible again."""
+    comment.status = status
+    comment.moderated_by = by_user
+    comment.save(update_fields=["status", "moderated_by"])

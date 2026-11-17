@@ -44,9 +44,9 @@
     </form>
     {% endif %}
 
-    <span class="action is-disabled" title="Euro-Chat is coming soon">
+    <a class="action action-discuss" href="{% if detail %}#comments{% else %}{{ post.get_absolute_url }}#comments{% endif %}" aria-label="Discuss, {{ post.comment_count|default:0 }} comment{{ post.comment_count|default:0|pluralize }}">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 4h16v11H8l-4 4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-      <span>Discuss</span>
-    </span>
+      <span>{% if post.comment_count %}{{ post.comment_count }}{% else %}Discuss{% endif %}</span>
+    </a>
   </div>
 </article>

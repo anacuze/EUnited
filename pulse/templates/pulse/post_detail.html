@@ -29,5 +29,9 @@
     {% if post.language != "en" %}<span class="btn btn-ghost is-disabled" title="Automatic translation is coming soon">Translate to English (soon)</span>{% endif %}
     {% if post.club %}<p class="muted">Posted by {{ post.club.name }}</p>{% elif post.source %}<p class="muted">Imported from {{ post.source.name }}</p>{% endif %}
   </div>
+
+  {% if post.status == "published" or post.status == "archived" %}
+    {% include "pulse/_comments.html" %}
+  {% endif %}
 </div>
 {% endblock %}
